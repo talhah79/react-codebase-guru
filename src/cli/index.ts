@@ -10,6 +10,8 @@ import * as path from 'path';
 import * as fs from 'fs-extra';
 import { ProjectAnalyzer } from '../core/projectAnalyzer';
 import { ProjectAnalysis } from '../types';
+import { FileWatcher } from '../watcher/fileWatcher';
+import { ConfigLoader } from '../config/configLoader';
 
 const program = new Command();
 
@@ -118,15 +120,113 @@ program
   });
 
 /**
- * Watch command - real-time monitoring (placeholder)
+ * Watch command - real-time monitoring
  */
 program
   .command('watch')
   .description('Start real-time drift detection')
   .option('-p, --path <path>', 'Project path to watch', process.cwd())
-  .action(async () => {
-    console.log(chalk.cyan('\n👁️  Watch mode coming soon!\n'));
-    console.log(chalk.gray('This feature will be implemented in Phase 2'));
+  .option('-v, --verbose', 'Verbose output', false)
+  .option('--include <patterns>', 'Include patterns (comma-separated)', '')
+  .option('--exclude <patterns>', 'Exclude patterns (comma-separated)', '')
+  .option('--debounce <ms>', 'Debounce delay in milliseconds', '300')
+  .option('--no-notifications', 'Disable desktop notifications')
+  .option('--dashboard', 'Enable interactive terminal dashboard')
+  .option('--no-streaming', 'Disable real-time analysis streaming')
+  .action(async (options) => {
+    try {
+      console.log(chalk.cyan('\n👁️  React Codebase Guru - Watch Mode\n'));
+
+      const projectPath = path.resolve(options.path);
+      
+      // Load configuration
+      const configLoader = new ConfigLoader(projectPath);
+      const config = await configLoader.loadConfig();
+
+      // Parse include/exclude patterns
+      const include = options.include ? 
+        options.include.split(',').map((p: string) => p.trim()) : 
+        config.include;
+      const exclude = options.exclude ? 
+        options.exclude.split(',').map((p: string) => p.trim()) : 
+        config.exclude;
+
+      // Create file watcher
+      const watcher = new FileWatcher({
+        projectPath,
+        include,
+        exclude,
+        debounceMs: parseInt(options.debounce),
+        enableNotifications: options.notifications !== false,
+        enableDashboard: options.dashboard === true,
+        enableStreaming: options.streaming !== false,
+        verbose: options.verbose,
+      });
+
+      // Set up event handlers (only show console output if dashboard is disabled)
+      if (!options.dashboard) {
+        watcher.on('ready', () => {
+          console.log(chalk.green('✅ File watcher ready'));
+          console.log(chalk.gray(`📁 Watching: ${projectPath}`));
+          console.log(chalk.gray('🔍 Press Ctrl+C to stop watching\n'));
+        });
+      }
+
+      if (!options.dashboard) {
+        watcher.on('drift-detected', (changes) => {
+          console.log(chalk.yellow(`\n⚠️  Drift detected in ${changes.length} file(s):`));
+          
+          changes.forEach((change: any) => {
+            const icon = change.type === 'added' ? '➕' : 
+                        change.type === 'modified' ? '📝' : '❌';
+            console.log(chalk.gray(`  ${icon} ${path.relative(projectPath, change.filePath)}`));
+          });
+          
+          console.log(chalk.gray('📊 Run "guru report" for detailed analysis\n'));
+        });
+
+        watcher.on('analysis-complete', (result) => {
+          if (result.violations.length > 0) {
+            const errorCount = result.violations.filter((v: any) => v.severity === 'error').length;
+            const warningCount = result.violations.filter((v: any) => v.severity === 'warning').length;
+            
+            console.log(chalk.red(`🚨 ${errorCount} error(s), ${warningCount} warning(s) detected`));
+          } else {
+            console.log(chalk.green('✅ No violations detected'));
+          }
+        });
+
+        watcher.on('error', (error) => {
+          console.error(chalk.red('❌ Watcher error:'), error.message);
+        });
+      }
+
+      // Handle graceful shutdown
+      const shutdown = async () => {
+        console.log(chalk.cyan('\n🛑 Stopping file watcher...'));
+        await watcher.stop();
+        
+        const stats = watcher.getSessionStats();
+        console.log(chalk.gray(`\n📊 Session Summary:`));
+        console.log(chalk.gray(`   Files watched: ${stats.filesWatched}`));
+        console.log(chalk.gray(`   Changes detected: ${stats.changesDetected}`));
+        console.log(chalk.gray(`   Violations found: ${stats.violationsFound}`));
+        console.log(chalk.gray(`   Duration: ${Math.round(stats.duration / 1000)}s`));
+        
+        console.log(chalk.green('\n👋 Thanks for using React Codebase Guru!\n'));
+        process.exit(0);
+      };
+
+      process.on('SIGINT', shutdown);
+      process.on('SIGTERM', shutdown);
+
+      // Start watching
+      await watcher.startWatching();
+
+    } catch (error) {
+      console.error(chalk.red('\n❌ Error:'), error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
   });
 
 /**

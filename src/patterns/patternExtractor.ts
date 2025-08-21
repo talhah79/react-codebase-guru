@@ -52,6 +52,12 @@ export interface DesignPatterns {
 }
 
 export class PatternExtractor {
+  private advancedExtractor?: import('./advancedPatternExtractor').AdvancedPatternExtractor;
+
+  constructor() {
+    // Lazy load advanced extractor to avoid circular dependencies
+  }
+
   /**
    * Extract all design patterns from project analysis
    */
@@ -71,6 +77,29 @@ export class PatternExtractor {
       cssFramework,
       namingConvention,
     };
+  }
+
+  /**
+   * Extract patterns with advanced analysis
+   */
+  async extractAdvancedPatterns(analysis: ProjectAnalysis): Promise<{
+    patterns: DesignPatterns;
+    confidences?: import('./advancedPatternExtractor').PatternConfidence[];
+    anomalies?: import('./advancedPatternExtractor').PatternAnomaly[];
+    similarities?: import('./advancedPatternExtractor').ComponentSimilarity[];
+  }> {
+    // Load advanced extractor if not already loaded
+    if (!this.advancedExtractor) {
+      const { AdvancedPatternExtractor } = await import('./advancedPatternExtractor');
+      this.advancedExtractor = new AdvancedPatternExtractor();
+    }
+
+    const result = this.advancedExtractor.extractAdvancedPatterns(
+      analysis.components,
+      analysis.styles
+    );
+
+    return result;
   }
 
   /**
