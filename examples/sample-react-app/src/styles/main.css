@@ -1,0 +1,18 @@
+:root {
+  --primary-color: #3b82f6;
+  --secondary-color: #6b7280;
+  --spacing-unit: 8px;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--spacing-unit);
+}
+
+.card {
+  border: 1px solid #e5e7eb;
+  border-radius: var(--spacing-unit);
+  padding: calc(var(--spacing-unit) * 2);
+  margin-bottom: calc(var(--spacing-unit) * 2);
+}

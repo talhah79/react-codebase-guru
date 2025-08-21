@@ -1,0 +1,92 @@
+{
+  "name": "react-codebase-guru",
+  "version": "1.0.0",
+  "description": "Real-time design system drift detection and codebase consultation for React projects",
+  "main": "dist/index.js",
+  "bin": {
+    "guru": "dist/cli/index.js",
+    "react-codebase-guru": "dist/cli/index.js"
+  },
+  "files": [
+    "dist/",
+    "templates/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:integration": "jest --config jest.integration.config.js",
+    "lint": "eslint . --ext .ts,.tsx,.js,.jsx",
+    "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,css,md}\"",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
+  "keywords": [
+    "react",
+    "design-system",
+    "drift-detection",
+    "code-quality",
+    "developer-tools",
+    "cli",
+    "mcp",
+    "ai-coding",
+    "codebase-analysis",
+    "pattern-detection"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/react-codebase-guru.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/react-codebase-guru/issues"
+  },
+  "homepage": "https://github.com/your-username/react-codebase-guru#readme",
+  "dependencies": {
+    "chalk": "^5.6.0",
+    "chokidar": "^4.0.3",
+    "commander": "^14.0.0",
+    "css-tree": "^3.1.0",
+    "fs-extra": "^11.3.1",
+    "glob": "^11.0.3",
+    "joi": "^18.0.1",
+    "node-html-parser": "^7.0.1",
+    "postcss": "^8.5.6",
+    "react-docgen": "^8.0.1",
+    "react-docgen-typescript": "^2.4.0",
+    "semver": "^7.7.2"
+  },
+  "devDependencies": {
+    "@types/css-tree": "^2.3.10",
+    "@types/fs-extra": "^11.0.4",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^24.3.0",
+    "@types/semver": "^7.7.0",
+    "@typescript-eslint/eslint-plugin": "^8.40.0",
+    "@typescript-eslint/parser": "^8.40.0",
+    "eslint": "^9.33.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.4",
+    "jest": "^30.0.5",
+    "prettier": "^3.6.2",
+    "ts-jest": "^29.4.1",
+    "typescript": "^5.9.2"
+  }
+}
