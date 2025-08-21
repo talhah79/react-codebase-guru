@@ -281,6 +281,55 @@ program
   });
 
 /**
+ * MCP command - start MCP server for AI agent integration
+ */
+program
+  .command('mcp')
+  .description('Start MCP server for AI agent integration')
+  .option('-p, --path <path>', 'Project path', process.cwd())
+  .option('--port <port>', 'Server port (for HTTP transport)', '3001')
+  .option('--no-realtime', 'Disable real-time file watching')
+  .option('--verbose', 'Enable verbose logging')
+  .action(async (options) => {
+    try {
+      console.log(chalk.cyan('\n🤖 Starting React Codebase Guru MCP Server...\n'));
+
+      const { MCPServer } = await import('../mcp/server');
+      
+      const server = new MCPServer({
+        projectPath: path.resolve(options.path),
+        port: parseInt(options.port),
+        enableRealTime: options.realtime !== false,
+        enableLogging: true,
+      });
+
+      // Handle graceful shutdown
+      const shutdown = async () => {
+        console.log(chalk.cyan('\n🛑 Stopping MCP server...'));
+        await server.stop();
+        console.log(chalk.green('👋 MCP server stopped\n'));
+        process.exit(0);
+      };
+
+      process.on('SIGINT', shutdown);
+      process.on('SIGTERM', shutdown);
+
+      // Start server
+      await server.start();
+      
+      console.log(chalk.green('✅ MCP Server running'));
+      console.log(chalk.gray(`📁 Project: ${options.path}`));
+      console.log(chalk.gray(`🔌 Transport: stdio (connect via MCP-compatible client)`));
+      console.log(chalk.gray('🎯 Ready for AI agent connections\n'));
+      console.log(chalk.gray('Press Ctrl+C to stop the server'));
+
+    } catch (error) {
+      console.error(chalk.red('\n❌ Error:'), error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+/**
  * Plan command - generate drift-aware feature plan (placeholder)
  */
 program
