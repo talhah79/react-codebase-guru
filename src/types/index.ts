@@ -127,6 +127,7 @@ export interface AnalyzerOptions {
   exclude?: string[];
   verbose?: boolean;
   maxFileSize?: number;
+  enableAnalytics?: boolean;
   timeout?: number;
 }
 

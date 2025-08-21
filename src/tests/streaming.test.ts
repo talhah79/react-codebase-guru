@@ -4,6 +4,8 @@
 
 import { AnalysisStream } from '../streaming/analysisStream';
 import { AnalysisChange } from '../performance/incrementalAnalyzer';
+import { DriftAnalysisResult } from '../drift-detector/driftAnalyzer';
+import { ComponentInfo } from '../types';
 import * as path from 'path';
 import * as os from 'os';
 
@@ -50,7 +52,15 @@ describe('AnalysisStream', () => {
       {
         type: 'modified',
         filePath: '/test/file.tsx',
-        result: { success: true, name: 'TestComponent' },
+        result: {
+          filePath: '/test/file.tsx',
+          name: 'TestComponent',
+          type: 'functional',
+          hasJSX: true,
+          props: [],
+          dependencies: [],
+          success: true,
+        } as ComponentInfo,
       },
     ];
 
@@ -65,14 +75,21 @@ describe('AnalysisStream', () => {
   it('should process analysis results', () => {
     stream.start();
 
-    const result = {
+    const result: DriftAnalysisResult = {
       complianceScore: 85,
       violations: [
-        { severity: 'error', type: 'inline-styles', message: 'Test violation' },
+        { 
+          severity: 'error' as const, 
+          type: 'inline-styles', 
+          message: 'Test violation',
+          filePath: '/test/file.tsx',
+        },
       ],
       summary: {
+        total: 1,
         errors: 1,
         warnings: 0,
+        byType: { 'inline-styles': 1 },
       },
     };
 
@@ -90,9 +107,9 @@ describe('AnalysisStream', () => {
 
     // Process multiple violations for the same file
     const violations = [
-      { severity: 'error', filePath: '/test/hotspot.tsx', type: 'test1', message: 'Test 1' },
-      { severity: 'warning', filePath: '/test/hotspot.tsx', type: 'test2', message: 'Test 2' },
-      { severity: 'error', filePath: '/test/other.tsx', type: 'test3', message: 'Test 3' },
+      { severity: 'error' as const, filePath: '/test/hotspot.tsx', type: 'test1', message: 'Test 1', line: 1 },
+      { severity: 'warning' as const, filePath: '/test/hotspot.tsx', type: 'test2', message: 'Test 2', line: 2 },
+      { severity: 'error' as const, filePath: '/test/other.tsx', type: 'test3', message: 'Test 3', line: 1 },
     ];
 
     stream.processViolations(violations);
@@ -109,9 +126,24 @@ describe('AnalysisStream', () => {
     stream.start();
 
     // Process multiple analysis results
-    stream.processAnalysisResult({ complianceScore: 90, violations: [], summary: { errors: 0, warnings: 0 } }, 100);
-    stream.processAnalysisResult({ complianceScore: 85, violations: [{}], summary: { errors: 1, warnings: 0 } }, 120);
-    stream.processAnalysisResult({ complianceScore: 80, violations: [{}, {}], summary: { errors: 2, warnings: 0 } }, 110);
+    stream.processAnalysisResult({ 
+      complianceScore: 90, 
+      violations: [], 
+      summary: { total: 0, errors: 0, warnings: 0, byType: {} } 
+    }, 100);
+    stream.processAnalysisResult({ 
+      complianceScore: 85, 
+      violations: [{ type: 'test', severity: 'error', filePath: '/test.tsx', message: 'Test' }], 
+      summary: { total: 1, errors: 1, warnings: 0, byType: { 'test': 1 } } 
+    }, 120);
+    stream.processAnalysisResult({ 
+      complianceScore: 80, 
+      violations: [
+        { type: 'test1', severity: 'error', filePath: '/test1.tsx', message: 'Test1' },
+        { type: 'test2', severity: 'error', filePath: '/test2.tsx', message: 'Test2' },
+      ], 
+      summary: { total: 2, errors: 2, warnings: 0, byType: { 'test1': 1, 'test2': 1 } } 
+    }, 110);
 
     const history = stream.getMetricsHistory();
     expect(history).toHaveLength(3);
@@ -127,7 +159,15 @@ describe('AnalysisStream', () => {
     stream.processChanges([{
       type: 'modified',
       filePath: '/test/file.tsx',
-      result: { success: true },
+      result: {
+        filePath: '/test/file.tsx',
+        name: 'TestComponent',
+        type: 'functional',
+        hasJSX: true,
+        props: [],
+        dependencies: [],
+        success: true,
+      } as ComponentInfo,
     }]);
 
     const jsonData = await stream.exportStreamData('json');
@@ -146,15 +186,15 @@ describe('AnalysisStream', () => {
     stream.processAnalysisResult({
       complianceScore: 75,
       violations: [
-        { severity: 'error', type: 'test', message: 'Test violation' },
+        { severity: 'error' as const, type: 'test', message: 'Test violation', filePath: '/test.tsx' },
       ],
-      summary: { errors: 1, warnings: 0 },
+      summary: { total: 1, errors: 1, warnings: 0, byType: { 'test': 1 } },
     }, 200);
 
     const report = await stream.generateRealTimeReport();
     expect(report).toContain('Real-time Drift Analysis Report');
     expect(report).toContain('75.0%');
-    expect(report).toContain('Total Violations: 1');
+    expect(report).toContain('- **Total Violations**: 1');
     expect(report).toContain('Performance');
   });
 });

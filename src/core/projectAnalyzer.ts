@@ -52,6 +52,7 @@ export class ProjectAnalyzer {
    * Analyze the entire project
    */
   async analyzeProject(): Promise<ProjectAnalysis> {
+    const startTime = Date.now();
     console.log(chalk.blue('🔍 Starting project analysis...'));
 
     // Check if valid project
@@ -152,6 +153,23 @@ export class ProjectAnalyzer {
     console.log(chalk.green('✅ Analysis complete!'));
     console.log(chalk.yellow(`📊 Compliance score: ${compliance.score}%`));
     console.log(chalk.yellow(`⚠️  Violations found: ${violations.length}`));
+
+    // Record analytics if enabled
+    if (this.options.enableAnalytics !== false) {
+      try {
+        const { AnalyticsEngine } = await import('../analytics/analyticsEngine');
+        const analyticsEngine = new AnalyticsEngine({ 
+          projectPath: this.options.projectPath 
+        });
+        await analyticsEngine.initialize();
+        const duration = Date.now() - startTime;
+        analyticsEngine.recordAnalysisRun(analysis, duration);
+        analyticsEngine.close();
+        console.log(chalk.gray('📊 Analytics recorded'));
+      } catch (error) {
+        // Silently fail analytics recording
+      }
+    }
 
     return analysis;
   }

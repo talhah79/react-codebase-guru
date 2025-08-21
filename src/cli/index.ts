@@ -330,6 +330,131 @@ program
   });
 
 /**
+ * Analytics command - view and export analytics
+ */
+program
+  .command('analytics')
+  .description('View project analytics and trends')
+  .option('-p, --path <path>', 'Project path', process.cwd())
+  .option('-d, --days <days>', 'Number of days to analyze', '30')
+  .option('-e, --export <format>', 'Export analytics (json, csv)')
+  .option('-v, --view <type>', 'View type (trends, health, components, violations)')
+  .action(async (options) => {
+    try {
+      console.log(chalk.cyan('\n📈 React Codebase Guru - Analytics\n'));
+
+      const { AnalyticsEngine } = await import('../analytics/analyticsEngine');
+      const projectPath = path.resolve(options.path);
+      
+      const engine = new AnalyticsEngine({ projectPath });
+      await engine.initialize();
+
+      const days = parseInt(options.days) || 30;
+
+      // Export if requested
+      if (options.export) {
+        const data = await engine.exportAnalytics(options.export as 'json' | 'csv');
+        const fileName = `analytics-${new Date().toISOString().split('T')[0]}.${options.export}`;
+        const outputPath = path.join(projectPath, '.codebase-guru', fileName);
+        await fs.writeFile(outputPath, data);
+        console.log(chalk.green(`✅ Analytics exported to: ${outputPath}`));
+        engine.close();
+        return;
+      }
+
+      // Display analytics based on view type
+      const viewType = options.view || 'trends';
+
+      switch (viewType) {
+        case 'trends': {
+          const trends = engine.analyzeDriftTrends(days);
+          console.log(chalk.white('📊 Drift Trends:\n'));
+          console.log(chalk.gray(`  Direction: ${trends.direction}`));
+          console.log(chalk.gray(`  Change Rate: ${trends.changeRate.toFixed(2)}% per day`));
+          console.log(chalk.gray(`  Predicted Score: ${trends.prediction.toFixed(1)}%`));
+          console.log(chalk.gray(`  Confidence: ${(trends.confidence * 100).toFixed(1)}%`));
+          break;
+        }
+
+        case 'health': {
+          const health = engine.calculateHealthScore();
+          console.log(chalk.white('🏥 Project Health:\n'));
+          const getColor = (score: number) => score >= 80 ? chalk.green : score >= 60 ? chalk.yellow : chalk.red;
+          console.log(getColor(health.overall)(`  Overall: ${health.overall}%`));
+          console.log(chalk.gray(`  Compliance: ${health.compliance}%`));
+          console.log(chalk.gray(`  Complexity: ${health.complexity}%`));
+          console.log(chalk.gray(`  Maintainability: ${health.maintainability}%`));
+          console.log(chalk.gray(`  Consistency: ${health.consistency}%`));
+          break;
+        }
+
+        case 'components': {
+          const analytics = engine.getComponentUsageAnalytics();
+          console.log(chalk.white('🧩 Component Analytics:\n'));
+          console.log(chalk.gray(`  Total Components: ${analytics.totalComponents}`));
+          console.log(chalk.gray(`  Total Usage: ${analytics.totalUsage}`));
+          console.log(chalk.gray(`  Diversity Score: ${analytics.diversityScore}%`));
+          console.log(chalk.white('\n  Most Used:'));
+          analytics.mostUsed.forEach((c: any) => {
+            console.log(chalk.gray(`    - ${c.component_name}: ${c.total_usage} uses`));
+          });
+          break;
+        }
+
+        case 'violations': {
+          const violations = engine.getViolationAnalytics(days);
+          console.log(chalk.white('⚠️  Violation Analytics:\n'));
+          console.log(chalk.gray(`  Total: ${violations.totalViolations}`));
+          console.log(chalk.gray(`  Dismissed: ${violations.dismissedViolations}`));
+          console.log(chalk.gray(`  Resolution Rate: ${violations.resolutionRate.toFixed(1)}%`));
+          console.log(chalk.white('\n  By Severity:'));
+          Object.entries(violations.bySeverity).forEach(([severity, count]) => {
+            const icon = severity === 'error' ? '❌' : severity === 'warning' ? '⚠️' : 'ℹ️';
+            console.log(chalk.gray(`    ${icon} ${severity}: ${count}`));
+          });
+          break;
+        }
+      }
+
+      console.log(chalk.gray(`\n📅 Analyzing last ${days} days`));
+      
+      engine.close();
+    } catch (error) {
+      console.error(chalk.red('\n❌ Error:'), error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+/**
+ * Dismiss command - dismiss violations
+ */
+program
+  .command('dismiss <violation-id>')
+  .description('Dismiss a violation with reason')
+  .option('-p, --path <path>', 'Project path', process.cwd())
+  .option('-r, --reason <reason>', 'Reason for dismissal', 'false positive')
+  .action(async (violationId, options) => {
+    try {
+      console.log(chalk.cyan('\n🚫 Dismissing Violation\n'));
+
+      const { AnalyticsEngine } = await import('../analytics/analyticsEngine');
+      const projectPath = path.resolve(options.path);
+      
+      const engine = new AnalyticsEngine({ projectPath });
+      await engine.initialize();
+
+      engine.dismissViolation(parseInt(violationId), options.reason);
+      
+      console.log(chalk.green(`✅ Violation ${violationId} dismissed: ${options.reason}`));
+      
+      engine.close();
+    } catch (error) {
+      console.error(chalk.red('\n❌ Error:'), error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+/**
  * Plan command - generate drift-aware feature plan (placeholder)
  */
 program
