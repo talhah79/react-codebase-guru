@@ -130,15 +130,54 @@ program
   });
 
 /**
- * Report command - generate drift report (placeholder)
+ * Report command - generate drift report
  */
 program
   .command('report')
   .description('Generate detailed drift report')
   .option('-p, --path <path>', 'Project path', process.cwd())
-  .action(async () => {
-    console.log(chalk.cyan('\n📊 Report generation coming soon!\n'));
-    console.log(chalk.gray('This feature will be implemented in Milestone 1.3'));
+  .option('-o, --output <path>', 'Output file path for report')
+  .action(async (options) => {
+    try {
+      console.log(chalk.cyan('\n📊 Generating Drift Report...\n'));
+
+      const projectPath = path.resolve(options.path);
+      
+      // Check if analysis exists
+      const analysisPath = path.join(projectPath, '.codebase-guru', 'analysis.json');
+      if (!(await fs.pathExists(analysisPath))) {
+        console.log(chalk.yellow('No analysis found. Running scan first...'));
+        
+        // Run analysis
+        const analyzer = new ProjectAnalyzer({
+          projectPath,
+          verbose: false,
+        });
+        
+        const analysis = await analyzer.analyzeProject();
+        await analyzer.saveAnalysis(analysis);
+        
+        // Generate report
+        await analyzer.generateReport(analysis, options.output);
+      } else {
+        // Load existing analysis
+        const analysis = await fs.readJson(analysisPath);
+        
+        // Generate report
+        const analyzer = new ProjectAnalyzer({
+          projectPath,
+          verbose: false,
+        });
+        
+        await analyzer.generateReport(analysis, options.output);
+      }
+
+      console.log(chalk.green('\n✨ Report generated successfully!\n'));
+
+    } catch (error) {
+      console.error(chalk.red('\n❌ Error:'), error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
   });
 
 /**

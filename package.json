@@ -53,12 +53,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-username/react-codebase-guru.git"
+    "url": "https://github.com/lylecodes/react-codebase-guru.git"
   },
   "bugs": {
-    "url": "https://github.com/your-username/react-codebase-guru/issues"
+    "url": "https://github.com/lylecodes/react-codebase-guru/issues"
   },
-  "homepage": "https://github.com/your-username/react-codebase-guru#readme",
+  "homepage": "https://github.com/lylecodes/react-codebase-guru#readme",
   "dependencies": {
     "chalk": "^5.6.0",
     "chokidar": "^4.0.3",

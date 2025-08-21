@@ -10,17 +10,26 @@ import {
   ComponentInfo, 
   CSSAnalysisResult, 
   HTMLAnalysisResult,
-  DriftViolation,
   AnalyzerOptions 
 } from '../types';
 import { ComponentAnalyzer, CSSAnalyzer, HTMLAnalyzer } from '../analyzers';
 import { FileDiscovery } from '../utils/fileDiscovery';
+import { PatternExtractor } from '../patterns/patternExtractor';
+import { PatternStorage } from '../patterns/patternStorage';
+import { DriftAnalyzer } from '../drift-detector/driftAnalyzer';
+import { ConfigLoader } from '../config/configLoader';
+import { MarkdownReporter } from '../reporters/markdownReporter';
 
 export class ProjectAnalyzer {
   private componentAnalyzer: ComponentAnalyzer;
   private cssAnalyzer: CSSAnalyzer;
   private htmlAnalyzer: HTMLAnalyzer;
   private fileDiscovery: FileDiscovery;
+  private patternExtractor: PatternExtractor;
+  private patternStorage: PatternStorage;
+  private configLoader: ConfigLoader;
+  private driftAnalyzer: DriftAnalyzer | null = null;
+  private reporter: MarkdownReporter;
   private options: AnalyzerOptions;
 
   constructor(options: AnalyzerOptions) {
@@ -28,6 +37,10 @@ export class ProjectAnalyzer {
     this.componentAnalyzer = new ComponentAnalyzer();
     this.cssAnalyzer = new CSSAnalyzer();
     this.htmlAnalyzer = new HTMLAnalyzer();
+    this.patternExtractor = new PatternExtractor();
+    this.patternStorage = new PatternStorage(options.projectPath);
+    this.configLoader = new ConfigLoader(options.projectPath);
+    this.reporter = new MarkdownReporter();
     this.fileDiscovery = new FileDiscovery({
       projectPath: options.projectPath,
       include: options.include,
@@ -73,11 +86,56 @@ export class ProjectAnalyzer {
     // Detect framework info
     const framework = await this.detectFramework();
 
-    // Calculate initial violations (basic detection)
-    const violations = this.detectBasicViolations(components, styles, templates);
+    // Load configuration
+    const config = await this.configLoader.loadConfig();
+
+    // Extract patterns
+    console.log(chalk.blue('🔍 Learning design patterns...'));
+    const patterns = this.patternExtractor.extractPatterns({
+      projectPath: this.options.projectPath,
+      timestamp: new Date().toISOString(),
+      framework,
+      components,
+      styles,
+      templates,
+      patterns: [],
+      violations: [],
+      compliance: { score: 0, totalFiles: 0, filesWithViolations: 0, totalViolations: 0 },
+    });
+
+    // Save patterns
+    await this.patternStorage.savePatterns(patterns);
+    const storedPatterns = await this.patternStorage.loadPatterns();
+    const patternInfos = storedPatterns ? 
+      this.patternStorage.convertToPatternInfo(storedPatterns.patterns) : [];
+
+    // Perform drift detection
+    console.log(chalk.blue('🎯 Detecting drift violations...'));
+    this.driftAnalyzer = new DriftAnalyzer(config);
+    this.driftAnalyzer.setPatterns(patterns);
+    
+    const tempAnalysis: ProjectAnalysis = {
+      projectPath: this.options.projectPath,
+      timestamp: new Date().toISOString(),
+      framework,
+      components,
+      styles,
+      templates,
+      patterns: patternInfos,
+      violations: [],
+      compliance: { score: 0, totalFiles: 0, filesWithViolations: 0, totalViolations: 0 },
+    };
+
+    const driftResult = this.driftAnalyzer.analyzeForDrift(tempAnalysis);
+    const violations = driftResult.violations;
 
     // Calculate compliance score
-    const compliance = this.calculateCompliance(files, violations);
+    const compliance = {
+      score: driftResult.complianceScore,
+      totalFiles: files.react.length + files.css.length + files.html.length,
+      filesWithViolations: new Set(violations.map(v => v.filePath)).size,
+      totalViolations: violations.length,
+    };
 
     const analysis: ProjectAnalysis = {
       projectPath: this.options.projectPath,
@@ -86,7 +144,7 @@ export class ProjectAnalyzer {
       components,
       styles,
       templates,
-      patterns: [], // Will be populated in pattern recognition phase
+      patterns: patternInfos,
       violations,
       compliance,
     };
@@ -215,86 +273,6 @@ export class ProjectAnalyzer {
     };
   }
 
-  /**
-   * Detect basic violations (more sophisticated detection in drift-detector module)
-   */
-  private detectBasicViolations(
-    components: ComponentInfo[],
-    styles: CSSAnalysisResult[],
-    templates: HTMLAnalysisResult[]
-  ): DriftViolation[] {
-    const violations: DriftViolation[] = [];
-
-    // Check for inline styles in components
-    for (const component of components) {
-      if (component.styling?.type === 'inline') {
-        violations.push({
-          type: 'inline-styles',
-          severity: 'warning',
-          filePath: component.filePath,
-          message: 'Component uses inline styles instead of design system',
-          suggestedFix: 'Use CSS classes or styled-components',
-        });
-      }
-    }
-
-    // Check for hardcoded colors in CSS
-    for (const style of styles) {
-      const hardcodedColors = style.colors.filter(
-        color => color.startsWith('#') || color.includes('rgb')
-      );
-      if (hardcodedColors.length > 0) {
-        violations.push({
-          type: 'hardcoded-colors',
-          severity: 'warning',
-          filePath: style.filePath,
-          message: `Found ${hardcodedColors.length} hardcoded colors`,
-          suggestedFix: 'Use CSS variables or design tokens',
-        });
-      }
-    }
-
-    // Check for accessibility issues in HTML
-    for (const template of templates) {
-      if (template.accessibility.missingLabels.length > 0) {
-        violations.push({
-          type: 'accessibility',
-          severity: 'error',
-          filePath: template.filePath,
-          message: `Missing labels for ${template.accessibility.missingLabels.length} elements`,
-          suggestedFix: 'Add aria-label or proper label elements',
-        });
-      }
-    }
-
-    return violations;
-  }
-
-  /**
-   * Calculate compliance score
-   */
-  private calculateCompliance(
-    files: { react: string[]; css: string[]; html: string[] },
-    violations: DriftViolation[]
-  ): ProjectAnalysis['compliance'] {
-    const totalFiles = files.react.length + files.css.length + files.html.length;
-    const filesWithViolations = new Set(violations.map(v => v.filePath)).size;
-    const totalViolations = violations.length;
-
-    // Calculate score (100% = no violations)
-    let score = 100;
-    if (totalFiles > 0) {
-      const violationRate = filesWithViolations / totalFiles;
-      score = Math.round((1 - violationRate) * 100);
-    }
-
-    return {
-      score,
-      totalFiles,
-      filesWithViolations,
-      totalViolations,
-    };
-  }
 
   /**
    * Generate JSON output
@@ -308,5 +286,37 @@ export class ProjectAnalyzer {
 
     console.log(chalk.green(`💾 Analysis saved to: ${savePath}`));
     return savePath;
+  }
+
+  /**
+   * Generate markdown report
+   */
+  async generateReport(analysis: ProjectAnalysis, outputPath?: string): Promise<string> {
+    if (!this.driftAnalyzer) {
+      const config = await this.configLoader.loadConfig();
+      this.driftAnalyzer = new DriftAnalyzer(config);
+    }
+
+    const driftResult = this.driftAnalyzer.analyzeForDrift(analysis);
+    const storedPatterns = await this.patternStorage.loadPatterns();
+    
+    const defaultPath = path.join(this.options.projectPath, '.codebase-guru', 'report.md');
+    const reportPath = outputPath || defaultPath;
+
+    const markdown = await this.reporter.generateReport(
+      analysis,
+      driftResult,
+      storedPatterns?.patterns,
+      {
+        includePatterns: true,
+        includeViolations: true,
+        includeSummary: true,
+        includeRecommendations: true,
+        outputPath: reportPath,
+      }
+    );
+
+    console.log(chalk.green(`📝 Report saved to: ${reportPath}`));
+    return markdown;
   }
 }

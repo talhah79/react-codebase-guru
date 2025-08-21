@@ -99,7 +99,7 @@ guru mcp
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/react-codebase-guru.git
+git clone https://github.com/lylecodes/react-codebase-guru.git
 cd react-codebase-guru
 
 # Install dependencies
@@ -147,9 +147,9 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## Support
 
-- 📖 [Documentation](https://github.com/your-username/react-codebase-guru/wiki)
-- 🐛 [Issue Tracker](https://github.com/your-username/react-codebase-guru/issues)
-- 💬 [Discussions](https://github.com/your-username/react-codebase-guru/discussions)
+- 📖 [Documentation](https://github.com/lylecodes/react-codebase-guru/wiki)
+- 🐛 [Issue Tracker](https://github.com/lylecodes/react-codebase-guru/issues)
+- 💬 [Discussions](https://github.com/lylecodes/react-codebase-guru/discussions)
 
 ## Roadmap
 
